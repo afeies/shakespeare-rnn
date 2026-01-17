@@ -1,10 +1,8 @@
 import torch
 import random
 
-
 class GeneratorSession:
     """Manages stateful text generation with pause/resume capability."""
-
     def __init__(self, model, vocab, device, max_tokens=500):
         self.model = model
         self.vocab = vocab
