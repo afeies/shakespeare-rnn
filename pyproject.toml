@@ -1,0 +1,21 @@
+[project]
+name = "shakespeare-rnn"
+version = "0.1.0"
+description = "Character-level RNN for text generation, trained on Shakespeare and other corpora"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.0",
+    "typer>=0.9",
+    "gradio>=4.0",
+]
+
+[project.scripts]
+shakespeare-rnn = "cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src", "cli.py", "app.py"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

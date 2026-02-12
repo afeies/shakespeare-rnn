@@ -1,84 +1,46 @@
+"""Shared helpers used across the project."""
+
+import math
+import os
+import random
+
 import torch
-import torch.nn as nn
-
-
-class CharVocab:
-    """Character-level vocabulary for encoding/decoding text."""
-    def __init__(self, itos, stoi):
-        self.itos = itos
-        self.stoi = stoi
-
-    def encode(self, s):
-        return [self.stoi[c] for c in s if c in self.stoi]
-
-    def decode(self, ids):
-        return "".join(self.itos[i] for i in ids)
-
-
-class CharRNN(nn.Module):
-    """Character-level RNN with GRU or LSTM architecture."""
-    def __init__(self, vocab_size, emb, hidden, layers, dropout, rnn_type="GRU"):
-        super().__init__()
-        self.emb = nn.Embedding(vocab_size, emb)
-        rnn_cls = {"GRU": nn.GRU, "LSTM": nn.LSTM}[rnn_type.upper()]
-        self.rnn = rnn_cls(emb, hidden, num_layers=layers, dropout=dropout if layers > 1 else 0.0, batch_first=True)
-        self.drop = nn.Dropout(dropout)
-        self.fc = nn.Linear(hidden, vocab_size)
-        self.rnn_type = rnn_type.upper()
-        self.layers = layers
-        self.hidden = hidden
-
-    def forward(self, x, h=None):
-        x = self.emb(x)
-        x, h = self.rnn(x, h)
-        x = self.drop(x)
-        return self.fc(x), h
-
-    def init_hidden(self, batch_size, device):
-        if self.rnn_type == "LSTM":
-            return (torch.zeros(self.layers, batch_size, self.hidden, device=device),
-                    torch.zeros(self.layers, batch_size, self.hidden, device=device))
-        else:
-            return torch.zeros(self.layers, batch_size, self.hidden, device=device)
 
 
 def detect_device():
-    """Auto-detect the best available device: MPS > CUDA > CPU."""
+    """Auto-detect the best available compute device (MPS > CUDA > CPU)."""
     if torch.backends.mps.is_available():
         return torch.device("mps")
-    elif torch.cuda.is_available():
+    if torch.cuda.is_available():
         return torch.device("cuda")
-    else:
-        return torch.device("cpu")
+    return torch.device("cpu")
 
 
-def load_model(checkpoint_path="char_rnn_checkpoint.pt"):
-    """Load the trained CharRNN model from checkpoint.
+def set_seed(seed=42):
+    """Set random seeds for reproducibility."""
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
-    Args:
-        checkpoint_path: Path to the saved checkpoint file
 
-    Returns:
-        tuple: (model, vocab, device)
+def bpc(loss_value):
+    """Convert cross-entropy loss (nats) to bits-per-character."""
+    return loss_value / math.log(2.0)
+
+
+def read_corpus(path):
+    """Read a text file and return its contents as a string.
+
+    Falls back to a tiny Shakespeare snippet if the file doesn't exist,
+    so experiments can still run without data.
     """
-    device = detect_device()
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    if path and os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as fh:
+            return fh.read()
+    return (
+        "ROMEO:\nBut soft, what light through yonder window breaks?\n"
+        "It is the east, and Juliet is the sun.\n"
+    )
 
-    # Rebuild model with saved config
-    model = CharRNN(
-        vocab_size=len(checkpoint["itos"]),
-        emb=checkpoint["config"]["embedding_dim"],
-        hidden=checkpoint["config"]["hidden_dim"],
-        layers=checkpoint["config"]["num_layers"],
-        dropout=checkpoint["config"]["dropout"],
-        rnn_type=checkpoint["config"]["rnn_type"]
-    ).to(device)
-
-    # Load trained weights
-    model.load_state_dict(checkpoint["model_state"])
-    model.eval()
-
-    # Restore vocabulary
-    vocab = CharVocab(checkpoint["itos"], checkpoint["stoi"])
-
-    return model, vocab, device
