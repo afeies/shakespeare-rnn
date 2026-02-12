@@ -1,3 +1,60 @@
+# Shakespeare RNN
+
+A character-level recurrent neural network that learns to generate text in the style of Shakespeare (or any other corpus you throw at it). Supports both GRU and LSTM architectures.
+
+## Quick start
+
+```bash
+pip install -r requirements.txt
+```
+
+### Generate text (CLI)
+
+```bash
+# generate from the default checkpoint
+python cli.py generate --prompt "ROMEO:" --length 500
+
+# tweak sampling parameters
+python cli.py generate -p "To be" -n 800 --temp 0.7 --top-k 30
+```
+
+### Train a model (CLI)
+
+```bash
+python cli.py train --data data/tinyshakespeare.txt --epochs 20 --rnn LSTM
+```
+
+### Web UI
+
+```bash
+python cli.py ui
+# or directly:
+python app.py
+```
+
+Opens a Gradio interface in your browser with sliders for temperature, top-k, top-p, and output length.
+
+## Project structure
+
+```
+├── cli.py              # typer CLI (train / generate / ui)
+├── app.py              # Gradio web frontend
+├── requirements.txt
+├── checkpoints/        # saved .pt checkpoints
+├── data/               # training corpora
+└── src/
+    ├── config.py       # default hyperparameters
+    ├── vocab.py        # character vocabulary
+    ├── model.py        # CharRNN (GRU / LSTM)
+    ├── dataset.py      # sliding-window dataset + DataLoader factory
+    ├── sampler.py      # top-k / top-p text generation
+    ├── train.py        # training loop and evaluation
+    ├── checkpoint.py   # save / load checkpoints
+    └── utils.py        # device detection, seeding, helpers
+```
+
+---
+
 ## Summary of Algorithm
 1. Initialize Parameters
 - define a neural network class inheriting from `nn.Module`
