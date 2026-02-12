@@ -19,15 +19,15 @@ class CharRNN(nn.Module):
                 f"got {rnn_type!r}"
             )
 
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.emb = nn.Embedding(vocab_size, embedding_dim)
         self.rnn = self.SUPPORTED_TYPES[rnn_type](
             embedding_dim, hidden_dim,
             num_layers=num_layers,
             dropout=dropout if num_layers > 1 else 0.0,
             batch_first=True,
         )
-        self.dropout = nn.Dropout(dropout)
-        self.head = nn.Linear(hidden_dim, vocab_size)
+        self.drop = nn.Dropout(dropout)
+        self.fc = nn.Linear(hidden_dim, vocab_size)
 
         self.rnn_type = rnn_type
         self.num_layers = num_layers
@@ -36,10 +36,10 @@ class CharRNN(nn.Module):
     # ------------------------------------------------------------------
 
     def forward(self, x, hidden=None):
-        x = self.embedding(x)
+        x = self.emb(x)
         x, hidden = self.rnn(x, hidden)
-        x = self.dropout(x)
-        logits = self.head(x)
+        x = self.drop(x)
+        logits = self.fc(x)
         return logits, hidden
 
     def init_hidden(self, batch_size, device):

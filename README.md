@@ -5,31 +5,31 @@ A character-level recurrent neural network that learns to generate text in the s
 ## Quick start
 
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 ### Generate text (CLI)
 
 ```bash
 # generate from the default checkpoint
-python cli.py generate --prompt "ROMEO:" --length 500
+uv run python cli.py generate --prompt "ROMEO:" --length 500
 
 # tweak sampling parameters
-python cli.py generate -p "To be" -n 800 --temp 0.7 --top-k 30
+uv run python cli.py generate -p "To be" -n 800 --temp 0.7 --top-k 30
 ```
 
 ### Train a model (CLI)
 
 ```bash
-python cli.py train --data data/tinyshakespeare.txt --epochs 20 --rnn LSTM
+uv run python cli.py train --data data/tinyshakespeare.txt --epochs 20 --rnn LSTM
 ```
 
 ### Web UI
 
 ```bash
-python cli.py ui
+uv run python cli.py ui
 # or directly:
-python app.py
+uv run python app.py
 ```
 
 Opens a Gradio interface in your browser with sliders for temperature, top-k, top-p, and output length.
