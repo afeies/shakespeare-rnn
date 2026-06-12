@@ -29,9 +29,10 @@ def _apply_top_p(probs, p):
 
 
 @torch.no_grad()
-def sample_text(model, vocab, *, max_tokens=300, temperature=0.9,
-                top_k=40, top_p=0.9, prompt="", device="cpu"):
-    """Generate text autoregressively from *model*.
+def stream_text(model, vocab, *, max_tokens=300, temperature=0.9,
+                top_k=40, top_p=0.9, prompt="", device="cpu",
+                chunk_size=4):
+    """Generate text autoregressively, yielding partial output as it grows.
 
     Args:
         model:       A trained CharRNN in eval mode.
@@ -42,9 +43,10 @@ def sample_text(model, vocab, *, max_tokens=300, temperature=0.9,
         top_p:       Nucleus sampling threshold (None to disable).
         prompt:      Optional seed string; a random character is used if empty.
         device:      Torch device.
+        chunk_size:  Yield the accumulated text every this many characters.
 
-    Returns:
-        The generated string (prompt + new characters).
+    Yields:
+        The text generated so far (prompt + new characters).
     """
     model.eval()
 
@@ -57,7 +59,7 @@ def sample_text(model, vocab, *, max_tokens=300, temperature=0.9,
     hidden = None
     output = list(prompt)
 
-    for _ in range(max_tokens):
+    for step in range(max_tokens):
         logits, hidden = model(input_ids, hidden)
         last_logits = logits[0, -1, :] / max(temperature, 1e-8)
         probs = torch.softmax(last_logits, dim=-1)
@@ -77,4 +79,15 @@ def sample_text(model, vocab, *, max_tokens=300, temperature=0.9,
         output.append(vocab.itos[next_id])
         input_ids = torch.tensor([[next_id]], device=device)
 
-    return "".join(output)
+        if (step + 1) % chunk_size == 0:
+            yield "".join(output)
+
+    yield "".join(output)
+
+
+def sample_text(model, vocab, **kwargs):
+    """Like :func:`stream_text`, but blocks and returns the full string."""
+    result = ""
+    for result in stream_text(model, vocab, **kwargs):
+        pass
+    return result

@@ -17,17 +17,21 @@ def _load_model():
 
 
 def generate_text(prompt, length, temperature, top_k, top_p):
-    """Called by Gradio when the user clicks Generate."""
+    """Called by Gradio when the user clicks Generate.
+
+    A generator: Gradio streams each yielded string to the output textbox,
+    giving a typewriter effect.
+    """
     if not Path(DEFAULT_CHECKPOINT).exists():
         raise gr.Error(
             f"No trained checkpoint found at '{DEFAULT_CHECKPOINT}'. "
             "Train one first: uv run python -m src.train"
         )
 
-    from src.generate import sample_text
+    from src.generate import stream_text
 
     model, vocab, _cfg, device = _load_model()
-    return sample_text(
+    yield from stream_text(
         model,
         vocab,
         max_tokens=int(length),
@@ -36,6 +40,7 @@ def generate_text(prompt, length, temperature, top_k, top_p):
         top_p=top_p,
         prompt=prompt,
         device=device,
+        chunk_size=4,
     )
 
 
