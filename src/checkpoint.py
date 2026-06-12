@@ -41,7 +41,6 @@ def load_checkpoint(path, device=None):
         hidden_dim=cfg["hidden_dim"],
         num_layers=cfg["num_layers"],
         dropout=cfg["dropout"],
-        rnn_type=cfg["rnn_type"],
     ).to(device)
 
     model.load_state_dict(ckpt["model_state"])

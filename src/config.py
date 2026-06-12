@@ -8,7 +8,6 @@ DEFAULT_CONFIG = {
     "hidden_dim": 512,
     "num_layers": 2,
     "dropout": 0.2,
-    "rnn_type": "LSTM",
     "num_epochs": 20,
     "learning_rate": 2e-3,
     "grad_clip": 1.0,

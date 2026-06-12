@@ -1,6 +1,6 @@
 # Shakespeare RNN
 
-A character-level recurrent neural network that learns to generate text in the style of Shakespeare (or any other corpus you throw at it). Supports both GRU and LSTM architectures.
+A character-level LSTM that learns to generate text in the style of Shakespeare (or any other corpus you throw at it).
 
 ## Quick start
 
@@ -21,7 +21,7 @@ uv run python cli.py generate -p "To be" -n 800 --temp 0.7 --top-k 30
 ### Train a model (CLI)
 
 ```bash
-uv run python cli.py train --data data/tinyshakespeare.txt --epochs 20 --rnn LSTM
+uv run python cli.py train --data data/tinyshakespeare.txt --epochs 20
 ```
 
 ### Web UI
@@ -45,7 +45,7 @@ Opens a Gradio interface in your browser with sliders for temperature, top-k, to
 └── src/
     ├── config.py       # default hyperparameters
     ├── vocab.py        # character vocabulary
-    ├── model.py        # CharRNN (GRU / LSTM)
+    ├── model.py        # CharRNN (LSTM)
     ├── dataset.py      # sliding-window dataset + DataLoader factory
     ├── sampler.py      # top-k / top-p text generation
     ├── train.py        # training loop and evaluation

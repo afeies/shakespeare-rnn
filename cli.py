@@ -14,7 +14,6 @@ def train(
         help="Path to the training corpus.",
     ),
     epochs: int = typer.Option(20, "--epochs", "-e", help="Number of training epochs."),
-    rnn_type: str = typer.Option("LSTM", "--rnn", help="RNN cell type (GRU or LSTM)."),
     lr: float = typer.Option(2e-3, "--lr", help="Learning rate."),
     batch_size: int = typer.Option(128, "--batch-size", "-b", help="Batch size."),
     seq_len: int = typer.Option(256, "--seq-len", help="Sequence length per sample."),
@@ -31,7 +30,6 @@ def train(
     cfg = make_config(
         data_path=str(data),
         num_epochs=epochs,
-        rnn_type=rnn_type.upper(),
         learning_rate=lr,
         batch_size=batch_size,
         seq_len=seq_len,

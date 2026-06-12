@@ -77,7 +77,6 @@ def train(config=None, verbose=True):
         hidden_dim=cfg["hidden_dim"],
         num_layers=cfg["num_layers"],
         dropout=cfg["dropout"],
-        rnn_type=cfg["rnn_type"],
     ).to(device)
 
     criterion = nn.CrossEntropyLoss()
