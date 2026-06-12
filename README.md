@@ -39,18 +39,13 @@ Opens a Gradio interface in your browser with sliders for temperature, top-k, to
 ```
 ├── cli.py              # typer CLI (train / generate / ui)
 ├── app.py              # Gradio web frontend
-├── requirements.txt
-├── checkpoints/        # saved .pt checkpoints
+├── pyproject.toml
+├── checkpoints/        # saved .pt checkpoints (gitignored)
 ├── data/               # training corpora
 └── src/
-    ├── config.py       # default hyperparameters
-    ├── vocab.py        # character vocabulary
-    ├── model.py        # CharRNN (LSTM)
-    ├── dataset.py      # chunked dataset + DataLoader factory
-    ├── sampler.py      # top-k / top-p text generation
-    ├── train.py        # training loop and evaluation
-    ├── checkpoint.py   # save / load checkpoints
-    └── utils.py        # device detection, seeding, helpers
+    ├── model.py        # vocab, CharRNN (LSTM), checkpoint save/load
+    ├── train.py        # config defaults, dataset, training loop
+    └── generate.py     # top-k / top-p sampling
 ```
 
 ---

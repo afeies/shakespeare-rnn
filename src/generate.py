@@ -1,6 +1,7 @@
 """Text generation / sampling from a trained CharRNN."""
 
 import random
+
 import torch
 
 

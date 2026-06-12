@@ -23,7 +23,7 @@ def _ensure_model(checkpoint_path=None):
     if _model is not None and _loaded_path == path:
         return
 
-    from src.checkpoint import load_checkpoint
+    from src.model import load_checkpoint
 
     _model, _vocab, _cfg, _device = load_checkpoint(path)
     _loaded_path = path
@@ -33,7 +33,7 @@ def generate_text(prompt, length, temperature, top_k, top_p):
     """Called by Gradio when the user clicks Generate."""
     _ensure_model()
 
-    from src.sampler import sample_text
+    from src.generate import sample_text
 
     length = int(length)
     top_k = int(top_k)

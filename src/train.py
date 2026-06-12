@@ -1,17 +1,85 @@
-"""Training loop and evaluation for CharRNN."""
+"""Training: config defaults, dataset, and the training loop."""
 
 import math
+import random
 
 import torch
 import torch.nn as nn
+from torch.utils.data import Dataset, DataLoader
 
-from src.utils import bpc, read_corpus, set_seed, detect_device
-from src.vocab import CharVocab
-from src.model import CharRNN
-from src.dataset import prepare_loaders
-from src.sampler import sample_text
-from src.checkpoint import save_checkpoint
-from src.config import DEFAULT_CONFIG
+from src.model import CharRNN, CharVocab, detect_device, save_checkpoint
+from src.generate import sample_text
+
+DEFAULT_CONFIG = {
+    "data_path": "data/tinyshakespeare.txt",
+    "seq_len": 256,
+    "batch_size": 128,
+    "embedding_dim": 256,
+    "hidden_dim": 512,
+    "num_layers": 2,
+    "dropout": 0.2,
+    "num_epochs": 20,
+    "learning_rate": 2e-3,
+    "grad_clip": 1.0,
+    "log_every": 100,
+    "sample_every": 200,
+    "max_generate": 400,
+    "temperature": 0.9,
+    "top_k": 40,
+    "top_p": 0.9,
+    "val_fraction": 0.05,
+    "save_path": "checkpoints/char_rnn_checkpoint.pt",
+}
+
+
+def make_config(**overrides):
+    """Return a fresh config dict with any overrides applied."""
+    return {**DEFAULT_CONFIG, **overrides}
+
+
+def set_seed(seed=42):
+    """Set random seeds for reproducibility."""
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+def bpc(loss_value):
+    """Convert cross-entropy loss (nats) to bits-per-character."""
+    return loss_value / math.log(2.0)
+
+
+def read_corpus(path):
+    """Read a text file and return its contents as a string."""
+    with open(path, "r", encoding="utf-8") as fh:
+        return fh.read()
+
+
+class CharChunkDataset(Dataset):
+    """Non-overlapping chunks over a 1-D tensor of token IDs.
+
+    Each sample is an (input, target) pair of length ``seq_len``,
+    where the target is shifted one position to the right.
+    """
+
+    def __init__(self, ids, seq_len):
+        self.ids = ids
+        self.seq_len = seq_len
+
+        # Pre-compute valid start positions
+        max_start = len(ids) - seq_len - 1
+        self.starts = list(range(0, max(max_start, 0) + 1, seq_len))
+
+    def __len__(self):
+        return len(self.starts)
+
+    def __getitem__(self, idx):
+        s = self.starts[idx]
+        x = self.ids[s : s + self.seq_len]
+        y = self.ids[s + 1 : s + 1 + self.seq_len]
+        return x, y
 
 
 def evaluate(model, loader, criterion, vocab_size, device):
@@ -45,9 +113,7 @@ def train(config=None, verbose=True):
     Returns:
         Path to the saved checkpoint with the lowest validation loss.
     """
-    cfg = dict(DEFAULT_CONFIG)
-    if config:
-        cfg.update(config)
+    cfg = make_config(**(config or {}))
 
     set_seed(42)
     device = detect_device()
@@ -63,10 +129,13 @@ def train(config=None, verbose=True):
     n_val = max(1, int(len(data_ids) * cfg["val_fraction"]))
     train_ids, val_ids = data_ids[:-n_val], data_ids[-n_val:]
 
-    train_loader, val_loader = prepare_loaders(
-        train_ids, val_ids,
-        seq_len=cfg["seq_len"],
-        batch_size=cfg["batch_size"],
+    train_loader = DataLoader(
+        CharChunkDataset(train_ids, cfg["seq_len"]),
+        batch_size=cfg["batch_size"], shuffle=True, drop_last=True,
+    )
+    val_loader = DataLoader(
+        CharChunkDataset(val_ids, cfg["seq_len"]),
+        batch_size=cfg["batch_size"], shuffle=False, drop_last=True,
     )
 
     # ---- model ----

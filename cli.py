@@ -24,8 +24,7 @@ def train(
     ),
 ):
     """Train a character-level RNN on a text corpus."""
-    from src.config import make_config
-    from src.train import train as run_training
+    from src.train import make_config, train as run_training
 
     cfg = make_config(
         data_path=str(data),
@@ -52,8 +51,8 @@ def generate(
     top_p: float = typer.Option(0.9, "--top-p", help="Nucleus sampling threshold."),
 ):
     """Generate text from a trained checkpoint."""
-    from src.checkpoint import load_checkpoint
-    from src.sampler import sample_text
+    from src.model import load_checkpoint
+    from src.generate import sample_text
 
     if not checkpoint.exists():
         typer.echo(f"Checkpoint not found: {checkpoint}", err=True)
