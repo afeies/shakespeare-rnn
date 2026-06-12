@@ -46,7 +46,7 @@ Opens a Gradio interface in your browser with sliders for temperature, top-k, to
     ├── config.py       # default hyperparameters
     ├── vocab.py        # character vocabulary
     ├── model.py        # CharRNN (LSTM)
-    ├── dataset.py      # sliding-window dataset + DataLoader factory
+    ├── dataset.py      # chunked dataset + DataLoader factory
     ├── sampler.py      # top-k / top-p text generation
     ├── train.py        # training loop and evaluation
     ├── checkpoint.py   # save / load checkpoints
@@ -54,6 +54,50 @@ Opens a Gradio interface in your browser with sliders for temperature, top-k, to
 ```
 
 ---
+
+## Performance log
+
+Step 1 — hidden dim 256
+1. epochs 5, num_layers 1: 2.173
+2. epochs 20, num layers 1: 1.906
+    - cpu (Apple M4): 2m 2.3s
+    - mps: 2m 12.6s
+3. epochs 20, num_layers 2: 1.821
+    - mps: 3m 50.8s
+4. epochs 20, num_layers 3: 1.793
+    - mps: 5m 47.8s
+5. epochs 20, num_layers 2, hidden_dim 512: 1.772
+    - mps: 5m 52.1s
+
+Step 2 — seq len 128, grad clip 1.0
+1. seq len 256: 1.737
+    - mps: 5m 44.2s
+
+seq len 256, learning rate 2e-3, grad clip 1.0, batch size 128, dropout 0.1
+
+Nan fix: seq len 384, learning rate 1e-4, grad clip 0.1, batch size 32, dropout 0.3: 2.059 still learning
+    - mps: 16m 55.4s
+
+2. Add scheduler, 2e-3: 1.735
+
+Base learning rate optimization:
+- 5e-3: 1.771
+- 3e-3: 1.760
+- 1e-3: 1.753
+
+Add weight decay to optimizer, 2e-3: 1.733
+
+3. overlap step original: None
+- 64: 1.741
+    - 25m 44.9s
+- 32: 1.753
+
+4. dropout original: 0.1
+- 0.2: 1.731
+- 0.3: 1.731
+
+5. model architecture original: GRU
+- LSTM: 1.835
 
 ## Summary of Algorithm
 1. Initialize Parameters

@@ -1,24 +1,22 @@
 """Dataset utilities for character-level language modelling."""
 
-import torch
 from torch.utils.data import Dataset, DataLoader
 
 
 class CharChunkDataset(Dataset):
-    """Sliding-window dataset over a 1-D tensor of token IDs.
+    """Non-overlapping chunks over a 1-D tensor of token IDs.
 
     Each sample is an (input, target) pair of length ``seq_len``,
     where the target is shifted one position to the right.
     """
 
-    def __init__(self, ids, seq_len, step=None):
+    def __init__(self, ids, seq_len):
         self.ids = ids
         self.seq_len = seq_len
-        self.step = step if step is not None else seq_len
 
         # Pre-compute valid start positions
         max_start = len(ids) - seq_len - 1
-        self.starts = list(range(0, max(max_start, 0) + 1, self.step))
+        self.starts = list(range(0, max(max_start, 0) + 1, seq_len))
 
     def __len__(self):
         return len(self.starts)
@@ -30,21 +28,10 @@ class CharChunkDataset(Dataset):
         return x, y
 
 
-def prepare_loaders(train_ids, val_ids, seq_len, batch_size, overlap_step=None):
-    """Build DataLoaders for training and validation splits.
-
-    Args:
-        train_ids: 1-D LongTensor of training token IDs.
-        val_ids:   1-D LongTensor of validation token IDs.
-        seq_len:   Sequence length per sample.
-        batch_size: Batch size.
-        overlap_step: Sliding-window stride (None = non-overlapping).
-
-    Returns:
-        (train_loader, val_loader)
-    """
-    train_ds = CharChunkDataset(train_ids, seq_len, step=overlap_step)
-    val_ds = CharChunkDataset(val_ids, seq_len, step=overlap_step)
+def prepare_loaders(train_ids, val_ids, seq_len, batch_size):
+    """Build DataLoaders for training and validation splits."""
+    train_ds = CharChunkDataset(train_ids, seq_len)
+    val_ds = CharChunkDataset(val_ids, seq_len)
 
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True, drop_last=True,

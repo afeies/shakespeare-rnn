@@ -1,6 +1,5 @@
 """Character-level LSTM language model."""
 
-import torch
 import torch.nn as nn
 
 
@@ -29,9 +28,3 @@ class CharRNN(nn.Module):
         x = self.drop(x)
         logits = self.fc(x)
         return logits, hidden
-
-    def init_hidden(self, batch_size, device):
-        """Return zero-initialised (h, c) state for a given batch size."""
-        shape = (self.num_layers, batch_size, self.hidden_dim)
-        return (torch.zeros(*shape, device=device),
-                torch.zeros(*shape, device=device))

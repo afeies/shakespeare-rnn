@@ -18,16 +18,10 @@ DEFAULT_CONFIG = {
     "top_k": 40,
     "top_p": 0.9,
     "val_fraction": 0.05,
-    "overlap_step": None,
     "save_path": "checkpoints/char_rnn_checkpoint.pt",
 }
 
 
 def make_config(**overrides):
     """Return a fresh config dict with any overrides applied."""
-    cfg = dict(DEFAULT_CONFIG)
-    for k, v in overrides.items():
-        if k not in cfg:
-            raise ValueError(f"Unknown config key: {k!r}")
-        cfg[k] = v
-    return cfg
+    return {**DEFAULT_CONFIG, **overrides}

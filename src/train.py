@@ -67,7 +67,6 @@ def train(config=None, verbose=True):
         train_ids, val_ids,
         seq_len=cfg["seq_len"],
         batch_size=cfg["batch_size"],
-        overlap_step=cfg["overlap_step"],
     )
 
     # ---- model ----

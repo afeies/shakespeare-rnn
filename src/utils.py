@@ -1,7 +1,6 @@
 """Shared helpers used across the project."""
 
 import math
-import os
 import random
 
 import torch
@@ -31,16 +30,7 @@ def bpc(loss_value):
 
 
 def read_corpus(path):
-    """Read a text file and return its contents as a string.
-
-    Falls back to a tiny Shakespeare snippet if the file doesn't exist,
-    so experiments can still run without data.
-    """
-    if path and os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as fh:
-            return fh.read()
-    return (
-        "ROMEO:\nBut soft, what light through yonder window breaks?\n"
-        "It is the east, and Juliet is the sun.\n"
-    )
+    """Read a text file and return its contents as a string."""
+    with open(path, "r", encoding="utf-8") as fh:
+        return fh.read()
 
