@@ -6,15 +6,11 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.0",
-    "typer>=0.9",
     "gradio>=4.0",
 ]
 
-[project.scripts]
-shakespeare-rnn = "cli:app"
-
 [tool.hatch.build.targets.wheel]
-packages = ["src", "cli.py", "app.py"]
+packages = ["src", "app.py"]
 
 [build-system]
 requires = ["hatchling"]

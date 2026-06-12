@@ -213,3 +213,8 @@ def train(config=None, verbose=True):
         print(f"Training complete — best val BPC {bpc(best_val):.3f}")
 
     return cfg["save_path"]
+
+
+# Run with: python -m src.train  (edit DEFAULT_CONFIG above to change settings)
+if __name__ == "__main__":
+    train()

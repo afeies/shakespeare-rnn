@@ -1,54 +1,42 @@
 """Gradio web interface for Shakespeare RNN text generation."""
 
+from functools import lru_cache
 from pathlib import Path
 
 import gradio as gr
 
-# ---------------------------------------------------------------------------
-# Globals populated at startup
-# ---------------------------------------------------------------------------
-_model = None
-_vocab = None
-_device = None
-_loaded_path = None
-
 DEFAULT_CHECKPOINT = "checkpoints/char_rnn_checkpoint.pt"
 
 
-def _ensure_model(checkpoint_path=None):
-    """Lazy-load the model so the import itself stays cheap."""
-    global _model, _vocab, _device, _loaded_path
-
-    path = checkpoint_path or DEFAULT_CHECKPOINT
-    if _model is not None and _loaded_path == path:
-        return
-
+@lru_cache(maxsize=1)
+def _load_model():
+    """Load the model once, on the first generation request."""
     from src.model import load_checkpoint
 
-    _model, _vocab, _cfg, _device = load_checkpoint(path)
-    _loaded_path = path
+    return load_checkpoint(DEFAULT_CHECKPOINT)
 
 
 def generate_text(prompt, length, temperature, top_k, top_p):
     """Called by Gradio when the user clicks Generate."""
-    _ensure_model()
+    if not Path(DEFAULT_CHECKPOINT).exists():
+        raise gr.Error(
+            f"No trained checkpoint found at '{DEFAULT_CHECKPOINT}'. "
+            "Train one first: uv run python -m src.train"
+        )
 
     from src.generate import sample_text
 
-    length = int(length)
-    top_k = int(top_k)
-
-    text = sample_text(
-        _model,
-        _vocab,
-        max_tokens=length,
+    model, vocab, _cfg, device = _load_model()
+    return sample_text(
+        model,
+        vocab,
+        max_tokens=int(length),
         temperature=temperature,
-        top_k=top_k,
+        top_k=int(top_k),
         top_p=top_p,
         prompt=prompt,
-        device=_device,
+        device=device,
     )
-    return text
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +52,7 @@ footer { display: none !important; }
 
 def build_ui():
     """Construct and return the Gradio Blocks app (without launching)."""
-    with gr.Blocks(css=CSS, title="Shakespeare RNN", theme=gr.themes.Soft()) as demo:
+    with gr.Blocks(title="Shakespeare RNN") as demo:
         gr.Markdown(
             "# Shakespeare RNN\n"
             "Generate character-level text with a trained RNN.  "
@@ -97,7 +85,6 @@ def build_ui():
                 output = gr.Textbox(
                     label="Generated text",
                     lines=20,
-                    show_copy_button=True,
                     elem_classes="output-text",
                 )
 
@@ -115,7 +102,11 @@ def build_ui():
     return demo
 
 
+def launch():
+    """Build and launch the UI (theme/css go to launch() in Gradio 6)."""
+    build_ui().launch(theme=gr.themes.Soft(), css=CSS)
+
+
 # Allow running directly: python app.py
 if __name__ == "__main__":
-    ui = build_ui()
-    ui.launch()
+    launch()
