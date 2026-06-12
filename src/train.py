@@ -103,12 +103,14 @@ def evaluate(model, loader, criterion, vocab_size, device):
     return avg, bpc(avg)
 
 
-def train(config=None, verbose=True):
+def train(config=None, verbose=True, on_epoch=None):
     """Run a full training session and return the path to the best checkpoint.
 
     Args:
-        config:  Dict of hyper-parameters (falls back to DEFAULT_CONFIG).
-        verbose: Whether to print progress during training.
+        config:   Dict of hyper-parameters (falls back to DEFAULT_CONFIG).
+        verbose:  Whether to print progress during training.
+        on_epoch: Optional callback invoked after each epoch with a dict of
+                  ``epoch``, ``num_epochs``, ``train_loss``, and ``val_loss``.
 
     Returns:
         Path to the saved checkpoint with the lowest validation loss.
@@ -162,6 +164,8 @@ def train(config=None, verbose=True):
     for epoch in range(1, cfg["num_epochs"] + 1):
         model.train()
         running = 0.0
+        epoch_total = 0.0
+        epoch_batches = 0
 
         for x, y in train_loader:
             x, y = x.to(device), y.to(device)
@@ -175,6 +179,8 @@ def train(config=None, verbose=True):
             optimizer.step()
 
             running += loss.item()
+            epoch_total += loss.item()
+            epoch_batches += 1
             global_step += 1
 
             if verbose and global_step % cfg["log_every"] == 0:
@@ -204,6 +210,14 @@ def train(config=None, verbose=True):
             save_checkpoint(cfg["save_path"], model, vocab, cfg)
             if verbose:
                 print(f"  -> saved best checkpoint (BPC {val_bpc:.3f})")
+
+        if on_epoch:
+            on_epoch({
+                "epoch": epoch,
+                "num_epochs": cfg["num_epochs"],
+                "train_loss": epoch_total / max(epoch_batches, 1),
+                "val_loss": val_loss,
+            })
 
         scheduler.step(val_loss)
         if verbose:
