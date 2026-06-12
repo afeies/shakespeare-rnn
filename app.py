@@ -1,6 +1,8 @@
 """Gradio web interface for Shakespeare RNN text generation."""
 
+from datetime import datetime
 from functools import lru_cache
+from itertools import count
 from pathlib import Path
 
 import gradio as gr
@@ -50,9 +52,9 @@ def generate_text():
 
 
 def _format_elapsed(seconds):
-    """Format a duration as e.g. '3m 42s'."""
+    """Format a duration as e.g. '3m 42s' (or '42s' under a minute)."""
     minutes, secs = divmod(int(seconds), 60)
-    return f"{minutes}m {secs}s"
+    return f"{minutes}m {secs}s" if minutes else f"{secs}s"
 
 
 def run_training():
@@ -115,6 +117,94 @@ def run_training():
 
 
 # ---------------------------------------------------------------------------
+# Mock training & model storage — temporary UI development path.
+# Set MOCK_TRAINING = False to hide the simulate/save workflow; the real
+# Train button (run_training above) is unaffected either way.
+# ---------------------------------------------------------------------------
+
+MOCK_TRAINING = True
+
+_mock_models = []  # saved entries, oldest first; Models page shows newest first
+_next_model_id = count(1)
+_active_model = {"id": None}  # model "loaded" for the Generate page (mocked)
+
+
+def simulate_training():
+    """Fake a training run over a few seconds, mirroring run_training's UI flow.
+
+    Streams (status, logs, summary, save-button visibility, final BPC).
+    """
+    import random
+    import time
+
+    num_epochs = 10
+    log_lines = []
+    start = time.monotonic()
+    yield "Status: Training...", "", "", gr.update(visible=False), None
+
+    train_loss, val_loss = 2.31, 2.45
+    for epoch in range(1, num_epochs + 1):
+        time.sleep(0.4)
+        frac = epoch / num_epochs
+        train_loss = 2.31 + (1.75 - 2.31) * frac + random.uniform(-0.02, 0.02)
+        val_loss = 2.45 + (1.71 - 2.45) * frac + random.uniform(-0.02, 0.02)
+        log_lines.append(
+            f"Epoch {epoch}/{num_epochs}\n"
+            f"Train Loss: {train_loss:.2f}\n"
+            f"Val Loss: {val_loss:.2f}\n"
+        )
+        yield ("Status: Training...", "\n".join(log_lines), "",
+               gr.update(visible=False), None)
+
+    final_bpc = round(val_loss, 2)
+    summary = (
+        "---\n"
+        "**Training Complete**\n\n"
+        f"Elapsed Time: {_format_elapsed(time.monotonic() - start)}  \n"
+        f"Final BPC: {final_bpc:.2f}"
+    )
+    yield ("Status: Complete", "\n".join(log_lines), summary,
+           gr.update(visible=True), final_bpc)
+
+
+def save_mock_model(final_bpc, version):
+    """Store a new mock model entry with a sequential ID."""
+    if final_bpc is None:
+        raise gr.Error("Run a simulated training first.")
+
+    entry = {
+        "id": f"model_{next(_next_model_id)}",
+        "saved_at": datetime.now().strftime("%Y-%m-%d %-I:%M %p"),
+        "bpc": final_bpc,
+    }
+    _mock_models.append(entry)
+    return gr.update(visible=False), f"Saved as **{entry['id']}**.", version + 1
+
+
+def _details_md(entry):
+    """Markdown for the simple model details view."""
+    return (
+        f"Model: **{entry['id']}**\n\n"
+        f"Saved: {entry['saved_at']}\n\n"
+        f"BPC: {entry['bpc']:.2f}"
+    )
+
+
+def load_mock_model(entry, version):
+    """Mark a model as active for the Generate page (loading is mocked)."""
+    _active_model["id"] = entry["id"]
+    return version + 1, f"**{entry['id']}** is now the active model for the Generate page."
+
+
+def delete_mock_model(entry, version):
+    """Remove a model from mock storage."""
+    _mock_models.remove(entry)
+    if _active_model["id"] == entry["id"]:
+        _active_model["id"] = None
+    return version + 1, ""
+
+
+# ---------------------------------------------------------------------------
 # UI layout
 # ---------------------------------------------------------------------------
 
@@ -164,10 +254,15 @@ def build_ui():
                 "*Powered by a character-level RNN trained on Shakespeare / custom corpora.*"
             )
 
+        # Bumped whenever mock storage changes, to re-render the Models page.
+        models_version = gr.State(0)
+
         with gr.Column(visible=False) as train_page:
             gr.Markdown("# Train", elem_classes="header")
 
-            train_btn = gr.Button("Train", variant="primary")
+            with gr.Row():
+                train_btn = gr.Button("Train", variant="primary")
+                simulate_btn = gr.Button("Simulate Training", visible=MOCK_TRAINING)
             train_status = gr.Markdown("Status: Idle")
             train_logs = gr.Textbox(
                 label="Training logs",
@@ -176,20 +271,74 @@ def build_ui():
                 elem_classes="train-logs",
             )
             train_summary = gr.Markdown("")
+            save_model_btn = gr.Button("Save Model", visible=False)
+            save_feedback = gr.Markdown("")
+            sim_bpc = gr.State(None)
 
             train_btn.click(
                 fn=run_training,
                 inputs=None,
                 outputs=[train_status, train_logs, train_summary],
             )
+            simulate_btn.click(
+                fn=simulate_training,
+                inputs=None,
+                outputs=[train_status, train_logs, train_summary,
+                         save_model_btn, sim_bpc],
+            )
+            save_model_btn.click(
+                fn=save_mock_model,
+                inputs=[sim_bpc, models_version],
+                outputs=[save_model_btn, save_feedback, models_version],
+            )
+
+        with gr.Column(visible=False) as models_page:
+            gr.Markdown("# Models", elem_classes="header")
+            model_details = gr.Markdown("")
+
+            @gr.render(inputs=models_version)
+            def render_models(version):
+                if not _mock_models:
+                    gr.Markdown(
+                        "*No saved models yet. Train one from the Train page.*",
+                        elem_classes="placeholder",
+                    )
+                    return
+
+                for entry in reversed(_mock_models):
+                    gr.Markdown("---")
+                    active = " (active)" if entry["id"] == _active_model["id"] else ""
+                    entry_btn = gr.Button(f"{entry['id']}{active}")
+                    gr.Markdown(
+                        f"Saved: {entry['saved_at']}  \nBPC: {entry['bpc']:.2f}"
+                    )
+                    with gr.Row():
+                        load_btn = gr.Button("Load", size="sm")
+                        delete_btn = gr.Button("Delete", size="sm")
+
+                    entry_btn.click(
+                        fn=lambda e=entry: _details_md(e),
+                        inputs=None,
+                        outputs=model_details,
+                    )
+                    load_btn.click(
+                        fn=lambda v, e=entry: load_mock_model(e, v),
+                        inputs=models_version,
+                        outputs=[models_version, model_details],
+                    )
+                    delete_btn.click(
+                        fn=lambda v, e=entry: delete_mock_model(e, v),
+                        inputs=models_version,
+                        outputs=[models_version, model_details],
+                    )
 
         placeholder_pages = []
-        for name in NAV_TABS[2:]:
+        for name in NAV_TABS[3:]:
             with gr.Column(visible=False) as page:
                 gr.Markdown(f"*{name} — coming soon.*", elem_classes="placeholder")
             placeholder_pages.append(page)
 
-        pages = [generate_page, train_page, *placeholder_pages]
+        pages = [generate_page, train_page, models_page, *placeholder_pages]
 
         def make_select(index):
             def select():
