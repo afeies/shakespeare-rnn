@@ -16,7 +16,13 @@ def _load_model():
     return load_checkpoint(DEFAULT_CHECKPOINT)
 
 
-def generate_text(prompt, length, temperature, top_k, top_p):
+GENERATION_LENGTH = 500
+TEMPERATURE = 0.9
+TOP_K = 40
+TOP_P = 0.9
+
+
+def generate_text():
     """Called by Gradio when the user clicks Generate.
 
     A generator: Gradio streams each yielded string to the output textbox,
@@ -34,11 +40,10 @@ def generate_text(prompt, length, temperature, top_k, top_p):
     yield from stream_text(
         model,
         vocab,
-        max_tokens=int(length),
-        temperature=temperature,
-        top_k=int(top_k),
-        top_p=top_p,
-        prompt=prompt,
+        max_tokens=GENERATION_LENGTH,
+        temperature=TEMPERATURE,
+        top_k=TOP_K,
+        top_p=TOP_P,
         device=device,
         chunk_size=4,
     )
@@ -60,42 +65,20 @@ def build_ui():
     with gr.Blocks(title="Shakespeare RNN") as demo:
         gr.Markdown(
             "# Shakespeare RNN\n"
-            "Generate character-level text with a trained RNN.  "
-            "Tweak the knobs below to control style and randomness.",
+            "Generate character-level text with a trained RNN.",
             elem_classes="header",
         )
 
-        with gr.Row():
-            with gr.Column(scale=1):
-                prompt = gr.Textbox(
-                    label="Prompt",
-                    placeholder="e.g. ROMEO:",
-                    lines=2,
-                )
-                length = gr.Slider(
-                    50, 2000, value=500, step=50, label="Length (characters)",
-                )
-                temperature = gr.Slider(
-                    0.1, 2.0, value=0.9, step=0.05, label="Temperature",
-                )
-                top_k = gr.Slider(
-                    1, 100, value=40, step=1, label="Top-k",
-                )
-                top_p = gr.Slider(
-                    0.1, 1.0, value=0.9, step=0.05, label="Top-p (nucleus)",
-                )
-                generate_btn = gr.Button("Generate", variant="primary")
-
-            with gr.Column(scale=2):
-                output = gr.Textbox(
-                    label="Generated text",
-                    lines=20,
-                    elem_classes="output-text",
-                )
+        generate_btn = gr.Button("Generate", variant="primary")
+        output = gr.Textbox(
+            label="Generated text",
+            lines=20,
+            elem_classes="output-text",
+        )
 
         generate_btn.click(
             fn=generate_text,
-            inputs=[prompt, length, temperature, top_k, top_p],
+            inputs=None,
             outputs=output,
         )
 
