@@ -73,7 +73,7 @@ def run_training():
 
     def worker():
         try:
-            path = train(verbose=False, on_epoch=lambda s: events.put(("epoch", s)))
+            path = train(on_epoch=lambda s: events.put(("epoch", s)))
             events.put(("done", path))
         except Exception as exc:  # surfaced to the user via gr.Error below
             events.put(("error", exc))

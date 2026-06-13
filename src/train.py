@@ -1,5 +1,3 @@
-"""Training: config defaults, dataset, and the training loop."""
-
 import math
 import random
 
@@ -31,44 +29,33 @@ DEFAULT_CONFIG = {
     "save_path": "checkpoints/char_rnn_checkpoint.pt",
 }
 
-
+# return a fresh config dict with any overrides applied
 def make_config(**overrides):
-    """Return a fresh config dict with any overrides applied."""
     return {**DEFAULT_CONFIG, **overrides}
 
-
+# set random seeds for reproducibility
 def set_seed(seed=42):
-    """Set random seeds for reproducibility."""
     random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-
+# convert cross-entropy loss to bits-per-character
 def bpc(loss_value):
-    """Convert cross-entropy loss (nats) to bits-per-character."""
     return loss_value / math.log(2.0)
 
-
+# read a text file and return its contents as a string
 def read_corpus(path):
-    """Read a text file and return its contents as a string."""
     with open(path, "r", encoding="utf-8") as fh:
         return fh.read()
 
-
+# non-overlapping chunks over a 1-D tensor of token IDs
 class CharChunkDataset(Dataset):
-    """Non-overlapping chunks over a 1-D tensor of token IDs.
-
-    Each sample is an (input, target) pair of length ``seq_len``,
-    where the target is shifted one position to the right.
-    """
-
     def __init__(self, ids, seq_len):
         self.ids = ids
         self.seq_len = seq_len
 
-        # Pre-compute valid start positions
         max_start = len(ids) - seq_len - 1
         self.starts = list(range(0, max(max_start, 0) + 1, seq_len))
 
@@ -81,9 +68,8 @@ class CharChunkDataset(Dataset):
         y = self.ids[s + 1 : s + 1 + self.seq_len]
         return x, y
 
-
+# compute average loss and BPC over a DataLoader
 def evaluate(model, loader, criterion, vocab_size, device):
-    """Compute average loss and BPC over a DataLoader."""
     model.eval()
     total_loss = 0.0
     n_batches = 0
@@ -102,27 +88,14 @@ def evaluate(model, loader, criterion, vocab_size, device):
     avg = total_loss / n_batches
     return avg, bpc(avg)
 
-
-def train(config=None, verbose=True, on_epoch=None):
-    """Run a full training session and return the path to the best checkpoint.
-
-    Args:
-        config:   Dict of hyper-parameters (falls back to DEFAULT_CONFIG).
-        verbose:  Whether to print progress during training.
-        on_epoch: Optional callback invoked after each epoch with a dict of
-                  ``epoch``, ``num_epochs``, ``train_loss``, and ``val_loss``.
-
-    Returns:
-        Path to the saved checkpoint with the lowest validation loss.
-    """
+# train and return path to best checkpoint
+def train(config=None, on_epoch=None):
     cfg = make_config(**(config or {}))
 
     set_seed(42)
     device = detect_device()
-    if verbose:
-        print(f"Training on {device}\n")
+    print(f"Training on {device}\n")
 
-    # ---- data ----
     text = read_corpus(cfg["data_path"])
     vocab = CharVocab.from_text(text)
     vocab_size = len(vocab)
@@ -140,7 +113,6 @@ def train(config=None, verbose=True, on_epoch=None):
         batch_size=cfg["batch_size"], shuffle=False, drop_last=True,
     )
 
-    # ---- model ----
     model = CharRNN(
         vocab_size=vocab_size,
         embedding_dim=cfg["embedding_dim"],
@@ -157,7 +129,6 @@ def train(config=None, verbose=True, on_epoch=None):
         optimizer, mode="min", factor=0.5, patience=3,
     )
 
-    # ---- training loop ----
     global_step = 0
     best_val = float("inf")
 
@@ -183,12 +154,12 @@ def train(config=None, verbose=True, on_epoch=None):
             epoch_batches += 1
             global_step += 1
 
-            if verbose and global_step % cfg["log_every"] == 0:
+            if global_step % cfg["log_every"] == 0:
                 avg_bpc = bpc(running / cfg["log_every"])
                 print(f"  epoch {epoch} | step {global_step} | train BPC {avg_bpc:.3f}")
                 running = 0.0
 
-            if verbose and global_step % cfg["sample_every"] == 0:
+            if global_step % cfg["sample_every"] == 0:
                 snippet = sample_text(
                     model, vocab,
                     max_tokens=cfg["max_generate"],
@@ -200,16 +171,13 @@ def train(config=None, verbose=True, on_epoch=None):
                 preview = snippet[:200] + "..." if len(snippet) > 200 else snippet
                 print(f"\n--- sample ---\n{preview}\n---\n")
 
-        # end-of-epoch validation
         val_loss, val_bpc = evaluate(model, val_loader, criterion, vocab_size, device)
-        if verbose:
-            print(f"  epoch {epoch} done | val BPC {val_bpc:.3f}")
+        print(f"  epoch {epoch} done | val BPC {val_bpc:.3f}")
 
         if val_loss < best_val:
             best_val = val_loss
             save_checkpoint(cfg["save_path"], model, vocab, cfg)
-            if verbose:
-                print(f"  -> saved best checkpoint (BPC {val_bpc:.3f})")
+            print(f"  -> saved best checkpoint (BPC {val_bpc:.3f})")
 
         if on_epoch:
             on_epoch({
@@ -220,15 +188,12 @@ def train(config=None, verbose=True, on_epoch=None):
             })
 
         scheduler.step(val_loss)
-        if verbose:
-            print()
+        print()
 
-    if verbose:
-        print(f"Training complete — best val BPC {bpc(best_val):.3f}")
+    print(f"Training complete — best val BPC {bpc(best_val):.3f}")
 
     return cfg["save_path"]
 
-
-# Run with: python -m src.train  (edit DEFAULT_CONFIG above to change settings)
+# Run with python -m src.train
 if __name__ == "__main__":
     train()
